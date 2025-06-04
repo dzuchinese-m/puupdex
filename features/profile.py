@@ -23,7 +23,9 @@ class ProfileFeature(FloatLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._cropped_tempfile = None
+        self.edit_mode = False
         self.profile_ui()
+        self.load_profile_info()
 
     def profile_ui(self):
         main_layout = MDBoxLayout(
@@ -40,7 +42,7 @@ class ProfileFeature(FloatLayout):
             padding=dp(20),
             spacing=dp(15),
             size_hint=(0.9, None),
-            height=dp(340),
+            height=dp(400),
             pos_hint={'center_x': 0.5},
             elevation=2
         )
@@ -56,7 +58,7 @@ class ProfileFeature(FloatLayout):
 
         # Profile picture area
         self.pfp_image = ClickableImage(
-            source='assets/pfp/easter_egg.png',  # Set default pfp
+            source='assets/pfp/easter_egg.png',
             size_hint=(None, None),
             width=dp(120),
             height=dp(120),
@@ -65,7 +67,6 @@ class ProfileFeature(FloatLayout):
             pos_hint={'center_x': 0.5}
         )
         self.pfp_image.bind(on_release=self.open_file_explorer)
-        # Add a border around the image
         bordered_pfp = MDBoxLayout(
             size_hint=(None, None),
             width=dp(124),
@@ -81,7 +82,8 @@ class ProfileFeature(FloatLayout):
             hint_text='Name',
             size_hint=(1, None),
             height=dp(40),
-            pos_hint={'center_x': 0.5}
+            pos_hint={'center_x': 0.5},
+            disabled=True
         )
         upload_card.add_widget(self.name_field)
 
@@ -91,7 +93,8 @@ class ProfileFeature(FloatLayout):
             text='1/1/1970',
             size_hint=(1, None),
             height=dp(40),
-            pos_hint={'center_x': 0.5}
+            pos_hint={'center_x': 0.5},
+            disabled=True
         )
         upload_card.add_widget(self.birth_field)
 
@@ -100,25 +103,94 @@ class ProfileFeature(FloatLayout):
             hint_text='Sex',
             size_hint=(1, None),
             height=dp(40),
-            pos_hint={'center_x': 0.5}
+            pos_hint={'center_x': 0.5},
+            disabled=True
         )
         upload_card.add_widget(self.sex_field)
 
-        # Save button
+        # Edit and Save buttons
+        self.edit_button = MDRectangleFlatIconButton(
+            text="Edit",
+            icon="pencil",
+            halign="center",
+            size_hint=(1, None),
+            height=dp(50),
+            on_release=self.enable_edit_mode
+        )
+        upload_card.add_widget(self.edit_button)
+
         self.save_button = MDRectangleFlatIconButton(
             text="Save",
             icon="content-save",
             halign="center",
             size_hint=(1, None),
             height=dp(50),
-            on_release=self.save_profile_info
+            on_release=self.save_profile_info,
+            disabled=True
         )
         upload_card.add_widget(self.save_button)
 
         main_layout.add_widget(upload_card)
         self.add_widget(main_layout)
 
+    def enable_edit_mode(self, instance):
+        self.edit_mode = True
+        self.name_field.disabled = False
+        self.birth_field.disabled = False
+        self.sex_field.disabled = False
+        self.save_button.disabled = False
+        self.edit_button.disabled = True
+
+    def disable_edit_mode(self):
+        self.edit_mode = False
+        self.name_field.disabled = True
+        self.birth_field.disabled = True
+        self.sex_field.disabled = True
+        self.save_button.disabled = True
+        self.edit_button.disabled = False
+
+    def load_profile_info(self):
+        try:
+            user = getattr(auth, "current_user", None)
+            id_token = None
+            user_id = None
+            # Try to get the latest user info from auth
+            if user and "idToken" in user:
+                id_token = user["idToken"]
+                user_id = user.get("localId")
+            elif hasattr(auth, 'current_user') and auth.current_user and "idToken" in auth.current_user:
+                id_token = auth.current_user["idToken"]
+                user_id = auth.current_user.get("localId")
+            # If not found, try to refresh from local storage/session
+            if not id_token or not user_id:
+                print("No user token found, cannot load profile info.")
+                self.name_field.text = ""
+                self.birth_field.text = "1/1/1970"
+                self.sex_field.text = ""
+                self.disable_edit_mode()
+                return
+            # Always fetch fresh data from Firebase
+            data = db.child("users").child(user_id).get(token=id_token)
+            info = data.val()
+            # --- Fix for MDTextField not updating visually ---
+            # Set text after the widget is added and scheduled on the next frame
+            from kivy.clock import Clock
+            def set_fields(*_):
+                self.name_field.text = info.get("name", "") if info else ""
+                self.birth_field.text = info.get("birth", "1/1/1970") if info else "1/1/1970"
+                self.sex_field.text = info.get("sex", "") if info else ""
+            Clock.schedule_once(set_fields, 0)
+            self.disable_edit_mode()
+        except Exception as e:
+            print(f"Failed to load profile info: {e}")
+            self.name_field.text = ""
+            self.birth_field.text = "1/1/1970"
+            self.sex_field.text = ""
+            self.disable_edit_mode()
+
     def open_file_explorer(self, instance):
+        if not self.edit_mode:
+            return  # Only allow changing pfp in edit mode
         try:
             filechooser.open_file(
                 on_selection=self.on_file_selected,
@@ -132,7 +204,6 @@ class ProfileFeature(FloatLayout):
             print(f"Error opening file explorer: {e}")
 
     def _center_crop_image(self, image_path):
-        """Crop the image to a 1:1 aspect ratio centered, resize to 120x120, and save to a temp file."""
         img = PILImage.open(image_path).convert("RGB")
         width, height = img.size
         min_dim = min(width, height)
@@ -147,9 +218,10 @@ class ProfileFeature(FloatLayout):
         return temp.name
 
     def on_file_selected(self, selection):
+        if not self.edit_mode:
+            return
         if selection:
             image_path = selection[0]
-            # Remove previous temp file if exists
             if self._cropped_tempfile:
                 try:
                     os.remove(self._cropped_tempfile)
@@ -161,11 +233,20 @@ class ProfileFeature(FloatLayout):
             self.pfp_image.source = cropped_path
             self.pfp_image.reload()
             print(f"Profile picture set: {cropped_path}")
-            # Upload to Firebase Storage
             try:
-                # You can change the path as needed, e.g., use user id or name
-                storage.child("profile_pictures/user_pfp.png").put(cropped_path)
-                toast("Profile picture uploaded to Firebase!")
+                # Save to Firebase Storage under user id if available
+                user = getattr(auth, "current_user", None)
+                user_id = None
+                if user and "localId" in user:
+                    user_id = user["localId"]
+                elif hasattr(auth, 'current_user') and auth.current_user and "localId" in auth.current_user:
+                    user_id = auth.current_user["localId"]
+                if user_id:
+                    storage.child(f"profile_pictures/{user_id}.png").put(cropped_path)
+                    toast("Profile picture uploaded to Firebase!")
+                else:
+                    storage.child("profile_pictures/user_pfp.png").put(cropped_path)
+                    toast("Profile picture uploaded to Firebase (no user id)!");
             except Exception as e:
                 print(f"Failed to upload profile picture: {e}")
                 toast("Failed to upload profile picture.")
@@ -175,27 +256,26 @@ class ProfileFeature(FloatLayout):
         birth = self.birth_field.text
         sex = self.sex_field.text
         print(f"Saved profile: Name={name}, Birth={birth}, Sex={sex}")
-        # Upload profile info to Firebase Realtime Database
         try:
             user = getattr(auth, "current_user", None)
-            if user and "localId" in user:
-                user_id = user["localId"]
-            else:
-                # fallback: try to get user id from token if available
-                user_id = None
-                try:
-                    user_id = auth.get_account_info(user['idToken'])['users'][0]['localId']
-                except Exception:
-                    pass
-            if user_id:
-                db.child("users").child(user_id).set({
-                    "name": name,
-                    "birth": birth,
-                    "sex": sex
-                })
-                toast("Profile info uploaded to Firebase!")
-            else:
-                toast("No user logged in. Cannot upload profile info.")
+            id_token = None
+            user_id = None
+            if user and "idToken" in user:
+                id_token = user["idToken"]
+                user_id = user.get("localId")
+            elif hasattr(auth, 'current_user') and auth.current_user and "idToken" in auth.current_user:
+                id_token = auth.current_user["idToken"]
+                user_id = auth.current_user.get("localId")
+            if not id_token or not user_id:
+                toast("No user logged in. Please log in again.")
+                return
+            db.child("users").child(user_id).set({
+                "name": name,
+                "birth": birth,
+                "sex": sex
+            }, id_token)
+            toast("Profile info uploaded to Firebase!")
+            self.disable_edit_mode()
         except Exception as e:
             print(f"Failed to upload profile info: {e}")
             toast("Failed to upload profile info.")

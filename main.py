@@ -38,11 +38,10 @@ class DemoApp(MDApp):
         }
         self.theme_cls.font_styles.update(font_styles)
 
-        self.root = ScreenManager() # Changed 'sm' to 'self.root'
+        self.root = ScreenManager()
 
-        self.dashboard_screen = DashboardScreen(
-            name='dashboard',
-        )
+        # Instantiate screens only once and reuse them
+        self.dashboard_screen = DashboardScreen(name='dashboard')
         self.root.add_widget(self.dashboard_screen)
         self.login_screen = LoginScreen(name='login')
         self.root.add_widget(self.login_screen)
@@ -50,8 +49,6 @@ class DemoApp(MDApp):
         self.root.add_widget(self.registration_screen)
         self.recovery_screen = RecoveryScreen(name='recovery')
         self.root.add_widget(self.recovery_screen)
-
-        # Add upload and analyse screens
         self.upload_screen = UploadFeature(name='upload')
         self.root.add_widget(self.upload_screen)
         self.analyse_screen = AnalyseFeature(name='analyse')
@@ -62,6 +59,11 @@ class DemoApp(MDApp):
         self.root.current = 'login'
 
         return self.root
+
+    def on_start(self):
+        # Ensure profile info is loaded after login
+        # If you want to always reload profile info after login, you can trigger it here or from your login logic
+        pass
 
 if __name__ == "__main__":
     load_model() # Load the model once at startup

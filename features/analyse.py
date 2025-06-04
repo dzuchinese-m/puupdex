@@ -278,6 +278,18 @@ class AnalyseFeature(Screen):
         from .artificial_intelligence import predict_top_breeds
         top_5_predictions = predict_top_breeds(self.selected_file_path, k=5)
 
+        # --- Set breed label based on top-1 prediction ---
+        if top_5_predictions:
+            main_breed, main_confidence = top_5_predictions[0]
+            main_breed_formatted = main_breed.replace('_', ' ').title()
+            main_confidence_str = f"{main_confidence:.1f}"
+
+            if main_breed.lower() == "undetermined":
+                self.breed_label.text = "Breed: Undetermined"
+            else:
+                self.breed_label.text = f"Breed: {main_breed_formatted} ({main_confidence_str}%)"
+        # --- End breed label logic ---
+
         if top_5_predictions:
             labels = []
             sizes = []

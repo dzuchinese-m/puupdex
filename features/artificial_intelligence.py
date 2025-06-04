@@ -81,8 +81,8 @@ class DogBreedPredictor:
         top_k_labels = self.label_encoder.inverse_transform(top_k_indices.cpu().numpy()[0])
         top_k_confidences = top_k_confidence.cpu().numpy()[0] * 100
 
-        # Only accept as dog breed if highest confidence is above threshold
-        if top_k_confidences[0] < confidence_threshold:
+        # Only return 'Undetermined' if the TOP-1 confidence is below threshold
+        if len(top_k_confidences) == 0 or top_k_confidences[0] < confidence_threshold:
             return [("Undetermined", 0.0)]
         
         return list(zip(top_k_labels, top_k_confidences))
