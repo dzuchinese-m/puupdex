@@ -1,0 +1,10 @@
+kivy[full]
+kivymd
+plyer
+torch
+torchvision
+pillow
+scikit-learn
+numpy
+matplotlib
+pyrebase4
