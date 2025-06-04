@@ -14,7 +14,7 @@ from plyer import filechooser
 from PIL import Image as PILImage
 import tempfile
 from kivymd.toast import toast
-from pyrebaseConfig import storage
+from pyrebaseConfig import storage, db, auth
 
 class ClickableImage(ButtonBehavior, KivyImage):
     pass
@@ -175,3 +175,27 @@ class ProfileFeature(FloatLayout):
         birth = self.birth_field.text
         sex = self.sex_field.text
         print(f"Saved profile: Name={name}, Birth={birth}, Sex={sex}")
+        # Upload profile info to Firebase Realtime Database
+        try:
+            user = getattr(auth, "current_user", None)
+            if user and "localId" in user:
+                user_id = user["localId"]
+            else:
+                # fallback: try to get user id from token if available
+                user_id = None
+                try:
+                    user_id = auth.get_account_info(user['idToken'])['users'][0]['localId']
+                except Exception:
+                    pass
+            if user_id:
+                db.child("users").child(user_id).set({
+                    "name": name,
+                    "birth": birth,
+                    "sex": sex
+                })
+                toast("Profile info uploaded to Firebase!")
+            else:
+                toast("No user logged in. Cannot upload profile info.")
+        except Exception as e:
+            print(f"Failed to upload profile info: {e}")
+            toast("Failed to upload profile info.")
