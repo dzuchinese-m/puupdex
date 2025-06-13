@@ -172,8 +172,7 @@ class ProfileFeature(FloatLayout):
             # Always fetch fresh data from Firebase
             data = db.child("users").child(user_id).get(token=id_token)
             info = data.val()
-            # --- Fix for MDTextField not updating visually ---
-            # Set text after the widget is added and scheduled on the next frame
+
             from kivy.clock import Clock
             def set_fields(*_):
                 self.name_field.text = info.get("name", "") if info else ""

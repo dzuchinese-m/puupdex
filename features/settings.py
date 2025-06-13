@@ -60,7 +60,7 @@ class SettingsFeature(Screen):
 
     def sign_out(self, instance):
         try:
-            auth.current_user = None  # Pyrebase: clear current user
+            auth.current_user = None 
             toast("Signed out successfully!")
         except Exception as e:
             print(f"Sign out error: {e}")

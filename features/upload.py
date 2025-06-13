@@ -1,4 +1,6 @@
 import os
+import subprocess
+import sys
 from kivy.uix.screenmanager import Screen
 from kivymd.uix.button import MDRectangleFlatIconButton
 from kivymd.uix.label import MDLabel
@@ -49,6 +51,7 @@ class UploadFeature(Screen):
             halign="center",
             size_hint=(1, None),
             height=dp(50),
+            on_release=self.open_camera_mbnv2
         )
         upload_card.add_widget(self.capture_button)
 
@@ -100,4 +103,22 @@ class UploadFeature(Screen):
 
         # Re-enable the select button
         self.select_button.disabled = False
+
+    def open_camera_yolo(self, instance):
+        """Launch YOLOtest.py as a subprocess to open the camera."""
+        yolo_script = os.path.join(os.path.dirname(__file__), "..", "dog_identification", "YOLOtest.py")
+        yolo_script = os.path.abspath(yolo_script)
+        try:
+            subprocess.Popen([sys.executable, yolo_script])
+        except Exception as e:
+            print(f"Failed to launch YOLO camera: {e}")
+
+    def open_camera_mbnv2(self, instance):
+        """Launch MBNv2test.py as a subprocess to open the camera."""
+        mbnv2_script = os.path.join(os.path.dirname(__file__), "..", "dog_identification", "MBNv2test.py")
+        mbnv2_script = os.path.abspath(mbnv2_script)
+        try:
+            subprocess.Popen([sys.executable, mbnv2_script])
+        except Exception as e:
+            print(f"Failed to launch MBNv2 camera: {e}")
 

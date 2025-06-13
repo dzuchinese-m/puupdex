@@ -54,15 +54,11 @@ class DemoApp(MDApp):
         self.analyse_screen = AnalyseFeature(name='analyse')
         self.root.add_widget(self.analyse_screen)
 
-        # Set the initial screen
-        # You'll likely want to start at the login screen or dashboard
         self.root.current = 'login'
 
         return self.root
 
     def on_start(self):
-        # Ensure profile info is loaded after login
-        # If you want to always reload profile info after login, you can trigger it here or from your login logic
         pass
 
 if __name__ == "__main__":

@@ -8,3 +8,5 @@ scikit-learn
 numpy
 matplotlib
 pyrebase4
+open-cv python
+ultralytics

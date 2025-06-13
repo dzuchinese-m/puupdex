@@ -23,6 +23,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from kivy.uix.image import Image as KivyImage
 from kivy.uix.scrollview import ScrollView
+import subprocess
+import sys
 
 
 class AnalyseFeature(Screen):
@@ -44,7 +46,7 @@ class AnalyseFeature(Screen):
             padding=dp(20),
             spacing=dp(15),
             size_hint=(None, None),
-            size=(dp(300), dp(440)),
+            size=(dp(300), dp(470)),
             pos_hint={'center_x': 0.5, 'center_y': 0.5},
             elevation=2
         )
@@ -189,6 +191,17 @@ class AnalyseFeature(Screen):
             size=(dp(40), dp(40)),
         )
         main_layout.add_widget(btn_icon)
+
+
+        self.camera_button = MDRaisedButton(
+            text="Open Camera",
+            icon="camera",
+            size_hint=(1, None),
+            height=dp(50),
+            on_release=self.open_camera_mbnv2
+        )
+        upload_card.add_widget(self.camera_button)
+
         self.add_widget(main_layout)
 
     def open_file_explorer(self, instance):
@@ -278,7 +291,6 @@ class AnalyseFeature(Screen):
         from .artificial_intelligence import predict_top_breeds
         top_5_predictions = predict_top_breeds(self.selected_file_path, k=5)
 
-        # --- Set breed label based on top-1 prediction ---
         if top_5_predictions:
             main_breed, main_confidence = top_5_predictions[0]
             main_breed_formatted = main_breed.replace('_', ' ').title()
@@ -288,7 +300,6 @@ class AnalyseFeature(Screen):
                 self.breed_label.text = "Breed: Undetermined"
             else:
                 self.breed_label.text = f"Breed: {main_breed_formatted} ({main_confidence_str}%)"
-        # --- End breed label logic ---
 
         if top_5_predictions:
             labels = []
@@ -367,6 +378,24 @@ class AnalyseFeature(Screen):
             )
 
             self.dialog.open()
+
+    def open_camera_yolo(self, instance):
+        """Launch YOLOtest.py as a subprocess to open the camera."""
+        yolo_script = os.path.join(os.path.dirname(__file__), "..", "dog_identification", "YOLOtest.py")
+        yolo_script = os.path.abspath(yolo_script)
+        try:
+            subprocess.Popen([sys.executable, yolo_script])
+        except Exception as e:
+            print(f"Failed to launch YOLO camera: {e}")
+
+    def open_camera_mbnv2(self, instance):
+        """Launch MBNv2test.py as a subprocess to open the camera."""
+        mbnv2_script = os.path.join(os.path.dirname(__file__), "..", "dog_identification", "MBNv2test.py")
+        mbnv2_script = os.path.abspath(mbnv2_script)
+        try:
+            subprocess.Popen([sys.executable, mbnv2_script])
+        except Exception as e:
+            print(f"Failed to launch MBNv2 camera: {e}")
 
     def go_dashboard(self, instance):
         # Switch to dashboard screen
