@@ -46,7 +46,7 @@ class AnalyseFeature(Screen):
             padding=dp(20),
             spacing=dp(15),
             size_hint=(None, None),
-            size=(dp(300), dp(470)),
+            size=(dp(300), dp(468)),
             pos_hint={'center_x': 0.5, 'center_y': 0.5},
             elevation=2
         )

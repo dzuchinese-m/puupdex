@@ -41,7 +41,21 @@ class DogBreedPredictor:
         # Load model
         self.model = models.mobilenet_v2(weights=None)
         self.model.classifier[1] = nn.Linear(self.model.last_channel, num_classes)
-        self.model.load_state_dict(torch.load(model_path, map_location=self.device))
+
+        checkpoint = torch.load(model_path, map_location=self.device)
+        if 'model' in checkpoint:
+            state_dict = checkpoint['model']
+        else:
+            state_dict = checkpoint
+        clean_state_dict = {}
+        for k, v in state_dict.items():
+            if k == "temperature":
+                continue
+            if k.startswith("model."):
+                clean_state_dict[k[6:]] = v
+            else:
+                clean_state_dict[k] = v
+        self.model.load_state_dict(clean_state_dict)
         self.model = self.model.to(self.device)
         self.model.eval()
 
