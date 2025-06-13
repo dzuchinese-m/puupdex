@@ -25,10 +25,10 @@ class DogBreedPredictor:
         # Get the directory of the current script and navigate to the parent directory
         current_dir = os.path.dirname(__file__)  # features folder
         parent_dir = os.path.dirname(current_dir)  # puupdex folder
-        model_dir = os.path.join(parent_dir, "puprecogniser_model\.tsinghua")
+        model_dir = os.path.join(parent_dir, "puprecogniser_model\.tsinghua_refined")
 
         label_encoder_path = os.path.join(model_dir, "label_encoder.pkl")
-        model_path = os.path.join(model_dir, "mobilenetv2_tsinghua_raw.pth")
+        model_path = os.path.join(model_dir, "dog_breed_mobilenetv2_calibrated.pth")
         
         # Load label encoder
         with open(label_encoder_path, "rb") as f: 
