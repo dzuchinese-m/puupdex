@@ -3,6 +3,10 @@ from kivy.uix.screenmanager import ScreenManager
 from kivy.core.window import Window
 from kivy.core.text import LabelBase
 from kivymd.font_definitions import theme_font_styles
+from kivy.event import EventDispatcher
+import os
+
+parent_dir = os.path.dirname(__file__)  # puupdex folder
 
 # Pages!
 from pages.login import LoginScreen
@@ -16,11 +20,13 @@ from features.analyse import AnalyseFeature
 # Load AI model at startup
 from features.artificial_intelligence import load_model
 
-class DemoApp(MDApp):
+class DemoApp(MDApp, EventDispatcher):
+    __events__ = ('on_new_analysis',) # Register the event
+
     def build(self):
         self.theme_cls.primary_palette = "LightBlue"
         self.theme_cls.theme_style = "Dark"
-        Window.size = (360, 780) # Samsung's default viewpoint!
+        Window.size = (768, 1024) # Tablet's
         Window.orientation = 'portrait'
 
         LabelBase.register(name="JetBrainsMono", fn_regular="assets/fonts/JetBrainsMono-Regular.ttf")
@@ -54,11 +60,18 @@ class DemoApp(MDApp):
         self.analyse_screen = AnalyseFeature(name='analyse')
         self.root.add_widget(self.analyse_screen)
 
-        self.root.current = 'login'
+        self.root.current = 'login'  # Set the initial screen
 
         return self.root
 
     def on_start(self):
+        pass
+
+    def on_new_analysis(self, *args): # Add the default handler
+        """
+        Default handler for the on_new_analysis event.
+        This event is dispatched when a new analysis is saved.
+        """
         pass
 
 if __name__ == "__main__":

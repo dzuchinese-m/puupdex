@@ -13,6 +13,7 @@ from kivymd.app import MDApp
 from features.upload import UploadFeature
 from features.profile import ProfileFeature
 from features.settings import SettingsFeature
+from pages.history import HistoryPage
 
 class DashboardScreen(Screen):
     def __init__(self, **kwargs):
@@ -40,7 +41,8 @@ class DashboardScreen(Screen):
             text='History',
             icon='history'
         )
-        #tab2.add_widget()
+        # Add HistoryPage to the history tab
+        tab2.add_widget(HistoryPage())
         bottom_nav.add_widget(tab2)
 
         tab3 = MDBottomNavigationItem(

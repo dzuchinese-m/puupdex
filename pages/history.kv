@@ -1,0 +1,28 @@
+<HistoryPage>:
+    BoxLayout:
+        orientation: 'vertical'
+        spacing: dp(5) # Reduced spacing between TopAppBar and content
+        padding: [dp(10), dp(5), dp(10), dp(10)] # Reduced top padding, [left, top, right, bottom]
+
+        MDTopAppBar:
+            title: "Don't remember? This is the place!"
+            elevation: 10
+            # Make the "Delete All" button icon red (error color)
+            right_action_items: [['delete-sweep-outline', lambda x: root.confirm_delete_all_entries(), "Delete All", "delete-sweep-outline", "Error"]]
+
+        ScrollView:
+            do_scroll_x: False
+            id: history_scroll
+            bar_width: dp(10)
+            # bar_color: app.theme_cls.primary_color # Using default or set in Python
+            # bar_inactive_color: app.theme_cls.primary_light # Using default or set in Python
+            effect_cls: "ScrollEffect"
+
+            GridLayout: # Changed from BoxLayout to GridLayout
+                id: history_container
+                cols: 2 # Display items in 2 columns
+                size_hint_y: None
+                height: self.minimum_height
+                spacing: dp(10) # Spacing between cards
+                padding: dp(10) # Padding around the grid
+                # History entries will be dynamically added here

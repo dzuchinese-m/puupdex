@@ -8,6 +8,7 @@ from kivymd.uix.card import MDCard
 from kivymd.uix.boxlayout import MDBoxLayout
 from plyer import filechooser
 from kivy.metrics import dp
+from kivy.clock import Clock # Added for scheduling
 
 class UploadFeature(Screen):
     def __init__(self, screen_manager=None, **kwargs):
@@ -74,9 +75,11 @@ class UploadFeature(Screen):
         try:
             filechooser.open_file(
                 on_selection=self.on_file_selected,
-                filters=[("Image files", "*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif"),
-                         ("All files", "*.*")],
-                title="Select an image"
+                filters=[
+                    ("Supported Media Files", "*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.mp4;*.avi;*.mov;*.mkv"),
+                    ("All files", "*.*")
+                ],
+                title="Select an image or video file"
             )
         except Exception as e:
             print(f"Error opening file explorer: {e}")
@@ -87,38 +90,56 @@ class UploadFeature(Screen):
         if selection:
             self.selected_file_path = selection[0]
             print(f"File selected: {self.selected_file_path}")
-            # Pass file path to analyse screen and redirect
+            
+            file_extension = os.path.splitext(self.selected_file_path)[1].lower()
+            is_video = file_extension in [".mp4", ".avi", ".mov", ".mkv"]
+
             sm = self.screen_manager or self.manager
+            print(f"UploadFeature: ScreenManager instance: {sm}") # Debug SM
             if sm:
                 analyse_screen = sm.get_screen("analyse")
-                analyse_screen.selected_file_path = self.selected_file_path
-                # Optionally update UI on analyse screen
-                filename = os.path.basename(self.selected_file_path)
-                analyse_screen.file_label.text = f"Selected: {filename}"
-                analyse_screen.image_preview.source = self.selected_file_path
-                analyse_screen.analyze_button.disabled = False
+                print(f"UploadFeature: Analyse screen instance: {analyse_screen}") # Debug analyse_screen
+
+                # Call a method on AnalyseFeature to set the file path and type
+                if hasattr(analyse_screen, 'prepare_for_analysis'):
+                    print(f"UploadFeature: Calling prepare_for_analysis for {self.selected_file_path}") # Debug call
+                    analyse_screen.prepare_for_analysis(self.selected_file_path, is_video)
+                    print(f"UploadFeature: prepare_for_analysis completed") # Debug call complete
+                else:
+                    print("Error: AnalyseFeature does not have prepare_for_analysis method.")
+                
+                print(f"UploadFeature: Attempting to switch to 'analyse' screen. Current before: {sm.current}") # Debug current screen
                 sm.current = "analyse"
+                # It's good practice to schedule the check for after the frame, to ensure Kivy has processed the change
+                Clock.schedule_once(lambda dt: print(f"UploadFeature: Switched. Current screen after change: {sm.current}"), 0)
+            else:
+                print("UploadFeature: ScreenManager not found!") # Debug if SM is None
+
+            self.select_button.disabled = False # Re-enable button
         else:
-            print("No file selected.")
-
-        # Re-enable the select button
-        self.select_button.disabled = False
-
-    def open_camera_yolo(self, instance):
-        """Launch YOLOtest.py as a subprocess to open the camera."""
-        yolo_script = os.path.join(os.path.dirname(__file__), "..", "dog_identification", "YOLOtest.py")
-        yolo_script = os.path.abspath(yolo_script)
-        try:
-            subprocess.Popen([sys.executable, yolo_script])
-        except Exception as e:
-            print(f"Failed to launch YOLO camera: {e}")
+            # No file selected, re-enable the button
+            self.select_button.disabled = False
 
     def open_camera_mbnv2(self, instance):
-        """Launch MBNv2test.py as a subprocess to open the camera."""
+        """Open the camera using the integrated real-time breed detection."""
+        # Disable the button to prevent multiple clicks
+        self.capture_button.disabled = True
         mbnv2_script = os.path.join(os.path.dirname(__file__), "..", "dog_identification", "MBNv2test.py")
         mbnv2_script = os.path.abspath(mbnv2_script)
         try:
-            subprocess.Popen([sys.executable, mbnv2_script])
+            subprocess.Popen([sys.executable, mbnv2_script]) 
         except Exception as e:
-            print(f"Failed to launch MBNv2 camera: {e}")
+            print(f"Error opening camera with MobileNetV2: {e}")
+        finally:
+            # Re-enable the button after the operation attempts to complete
+            self.capture_button.disabled = False
+
+    def go_dashboard(self, instance):
+        sm = self.screen_manager or self.manager
+        if sm:
+            sm.current = "dashboard"
+
+# Example of how to integrate with ScreenManager in main.py (conceptual)
+# class PuupDexApp(MDApp):
+#     def build(self):
 
