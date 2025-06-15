@@ -19,6 +19,8 @@ from features.analyse import AnalyseFeature
 
 # Load AI model at startup
 from features.artificial_intelligence import load_model
+from kivy.config import Config
+Config.set('input', 'mouse', 'mouse,disable_multitouch')
 
 class DemoApp(MDApp, EventDispatcher):
     __events__ = ('on_new_analysis',) # Register the event
