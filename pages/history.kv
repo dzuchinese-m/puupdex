@@ -5,6 +5,8 @@
         padding: [dp(10), dp(5), dp(10), dp(10)] # Reduced top padding, [left, top, right, bottom]
 
         MDTopAppBar:
+            size_hint_y: None  # Ensure it takes its explicit height
+            height: self.theme_cls.standard_increment # Or a specific dp value like dp(56)
             title: "Don't remember? This is the place!"
             elevation: 10
             # Make the "Delete All" button icon red (error color)
@@ -12,6 +14,7 @@
 
         ScrollView:
             do_scroll_x: False
+            size_hint_y: 1 # Ensure ScrollView takes remaining vertical space
             id: history_scroll
             bar_width: dp(10)
             # bar_color: app.theme_cls.primary_color # Using default or set in Python

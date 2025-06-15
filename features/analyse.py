@@ -231,11 +231,7 @@ class AnalyseFeature(Screen):
             filechooser.open_file(
                 on_selection=self.on_file_selected,
                 filters=[
-                    ("Image files", "*.jpg;*.jpeg;*.png;*.bmp;*.gif"),
-                    ("MP4 Video (*.mp4)", "*.mp4"),
-                    ("AVI Video (*.avi)", "*.avi"),
-                    ("MOV Video (*.mov)", "*.mov"),
-                    ("MKV Video (*.mkv)", "*.mkv"),
+                    ("Supported Media Files", "*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.mp4;*.avi;*.mov;*.mkv"),
                     ("All files", "*.*")
                 ],
                 title="Select a dog image or video"
