@@ -9,6 +9,7 @@ from kivymd.uix.boxlayout import MDBoxLayout
 from plyer import filechooser
 from kivy.metrics import dp
 from kivy.clock import Clock # Added for scheduling
+from kivymd.app import MDApp # Added import
 
 class UploadFeature(Screen):
     def __init__(self, screen_manager=None, **kwargs):
@@ -94,26 +95,23 @@ class UploadFeature(Screen):
             file_extension = os.path.splitext(self.selected_file_path)[1].lower()
             is_video = file_extension in [".mp4", ".avi", ".mov", ".mkv"]
 
-            sm = self.screen_manager or self.manager
-            print(f"UploadFeature: ScreenManager instance: {sm}") # Debug SM
-            if sm:
-                analyse_screen = sm.get_screen("analyse")
-                print(f"UploadFeature: Analyse screen instance: {analyse_screen}") # Debug analyse_screen
+            # Get the running app instance
+            app = MDApp.get_running_app()
+            
+            # It's better to pass data to the screen *after* ensuring it's loaded
+            # and switched. We can store it in the app instance temporarily if needed,
+            # or call a method on the screen instance after switching.
 
-                # Call a method on AnalyseFeature to set the file path and type
-                if hasattr(analyse_screen, 'prepare_for_analysis'):
-                    print(f"UploadFeature: Calling prepare_for_analysis for {self.selected_file_path}") # Debug call
-                    analyse_screen.prepare_for_analysis(self.selected_file_path, is_video)
-                    print(f"UploadFeature: prepare_for_analysis completed") # Debug call complete
-                else:
-                    print("Error: AnalyseFeature does not have prepare_for_analysis method.")
-                
-                print(f"UploadFeature: Attempting to switch to 'analyse' screen. Current before: {sm.current}") # Debug current screen
-                sm.current = "analyse"
-                # It's good practice to schedule the check for after the frame, to ensure Kivy has processed the change
-                Clock.schedule_once(lambda dt: print(f"UploadFeature: Switched. Current screen after change: {sm.current}"), 0)
-            else:
-                print("UploadFeature: ScreenManager not found!") # Debug if SM is None
+            # For now, let's assume AnalyseFeature will retrieve this path or
+            # it will be passed via a method called after screen switch.
+            # We can store it in the app instance for AnalyseFeature to pick up.
+            app.current_analysis_file_path = self.selected_file_path
+            app.current_analysis_is_video = is_video
+            
+            print(f"UploadFeature: Attempting to switch to 'analyse' screen.")
+            app.switch_to_screen("analyse")
+            # The prepare_for_analysis logic should ideally be in AnalyseFeature's on_enter or similar,
+            # or called explicitly after the switch by whatever manages the flow.
 
             self.select_button.disabled = False # Re-enable button
         else:
@@ -135,9 +133,9 @@ class UploadFeature(Screen):
             self.capture_button.disabled = False
 
     def go_dashboard(self, instance):
-        sm = self.screen_manager or self.manager
-        if sm:
-            sm.current = "dashboard"
+        # sm = self.screen_manager or self.manager # Not needed if using app instance
+        # if sm: # Not needed
+        MDApp.get_running_app().switch_to_screen("dashboard")
 
 # Example of how to integrate with ScreenManager in main.py (conceptual)
 # class PuupDexApp(MDApp):

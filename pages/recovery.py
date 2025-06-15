@@ -8,6 +8,7 @@ from kivy.metrics import *
 from kivymd.toast import toast
 from pyrebaseConfig import auth
 from kivymd.uix.dialog import MDDialog
+from kivymd.app import MDApp # Added import
 
 class RecoveryScreen(Screen):
     def __init__(self, **kwargs):
@@ -96,4 +97,5 @@ class RecoveryScreen(Screen):
         self.dialog.open()
 
     def go_login(self, *args):
-        self.manager.current = 'login'
+        # self.manager.current = 'login' # OLD METHOD
+        MDApp.get_running_app().switch_to_screen('login') # MODIFIED

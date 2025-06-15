@@ -9,6 +9,7 @@ from kivy.uix.behaviors import ButtonBehavior
 from kivy.uix.textinput import TextInput
 from kivy.clock import Clock
 from kivymd.toast import toast
+from kivymd.app import MDApp # Added import
 
 from pyrebaseConfig import auth
 
@@ -96,13 +97,13 @@ class LoginScreen(Screen):
             user = auth.sign_in_with_email_and_password(email, password)
             print("Login successful:", user['email'] if 'email' in user else user)
             toast("Login successful!")
-            self.manager.current = 'dashboard'
+            MDApp.get_running_app().switch_to_screen('dashboard') # Changed this line
         except Exception as e:
             print("Login failed:", e)
             toast("Login failed. Check your credentials.")
 
     def go_registeration(self, *args):
-        self.manager.current = 'registration'
+        MDApp.get_running_app().switch_to_screen('registration') # Changed this line
 
     def go_recovery(self, *args):
-        self.manager.current = 'recovery'
+        MDApp.get_running_app().switch_to_screen('recovery') # Changed this line

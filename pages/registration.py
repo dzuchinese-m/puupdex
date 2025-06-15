@@ -9,6 +9,7 @@ from kivy.uix.textinput import TextInput
 from kivymd.toast import toast
 
 from pyrebaseConfig import auth
+from kivymd.app import MDApp # Added import
 
 class RegistrationScreen(Screen):
     def __init__(self, **kwargs):
@@ -93,4 +94,5 @@ class RegistrationScreen(Screen):
             toast("Registration failed. Check your input.")
 
     def go_login(self, *args):
-        self.manager.current = 'login'
+        # self.manager.current = 'login' # OLD METHOD
+        MDApp.get_running_app().switch_to_screen('login') # MODIFIED

@@ -5,25 +5,28 @@ from kivy.core.text import LabelBase
 from kivymd.font_definitions import theme_font_styles
 from kivy.event import EventDispatcher
 import os
+import threading
+import importlib # Added for dynamic imports
 
 parent_dir = os.path.dirname(__file__)  # puupdex folder
 
-# Pages!
-from pages.login import LoginScreen
-from pages.registration import RegistrationScreen
-from pages.recovery import RecoveryScreen
-from pages.dashboard import DashboardScreen
-# Features!
-from features.upload import UploadFeature
-from features.analyse import AnalyseFeature
-
-# Load AI model at startup
-from features.artificial_intelligence import load_model
+# AI model import is also deferred to where it's used, or can remain if load_model is a simple function definition
+# from features.artificial_intelligence import load_model 
 from kivy.config import Config
 Config.set('input', 'mouse', 'mouse,disable_multitouch')
 
 class DemoApp(MDApp, EventDispatcher):
     __events__ = ('on_new_analysis',) # Register the event
+    
+    _screen_instances = {} # Cache for instantiated screen instances
+    _screen_module_paths = { # Maps screen names to their module path and class name
+        'login': ('pages.login', 'LoginScreen'),
+        'registration': ('pages.registration', 'RegistrationScreen'),
+        'recovery': ('pages.recovery', 'RecoveryScreen'),
+        'dashboard': ('pages.dashboard', 'DashboardScreen'),
+        'upload': ('features.upload', 'UploadFeature'), # Assuming UploadFeature is a Kivy Screen
+        'analyse': ('features.analyse', 'AnalyseFeature'), # Assuming AnalyseFeature is a Kivy Screen
+    }
 
     def build(self):
         self.theme_cls.primary_palette = "LightBlue"
@@ -48,26 +51,61 @@ class DemoApp(MDApp, EventDispatcher):
 
         self.root = ScreenManager()
 
-        # Instantiate screens only once and reuse them
-        self.dashboard_screen = DashboardScreen(name='dashboard')
-        self.root.add_widget(self.dashboard_screen)
-        self.login_screen = LoginScreen(name='login')
-        self.root.add_widget(self.login_screen)
-        self.registration_screen = RegistrationScreen(name='registration')
-        self.root.add_widget(self.registration_screen)
-        self.recovery_screen = RecoveryScreen(name='recovery')
-        self.root.add_widget(self.recovery_screen)
-        self.upload_screen = UploadFeature(name='upload')
-        self.root.add_widget(self.upload_screen)
-        self.analyse_screen = AnalyseFeature(name='analyse')
-        self.root.add_widget(self.analyse_screen)
-
+        # Load the initial screen
+        self.ensure_screen_loaded('login')
         self.root.current = 'login'  # Set the initial screen
 
         return self.root
 
+    def ensure_screen_loaded(self, screen_name):
+        """Dynamically imports and instantiates a screen if not already loaded."""
+        if screen_name not in self._screen_instances:
+            if screen_name not in self._screen_module_paths:
+                print(f"Error: Screen '{screen_name}' is not defined in _screen_module_paths.")
+                return False
+            
+            module_path, class_name = self._screen_module_paths[screen_name]
+            try:
+                module = importlib.import_module(module_path)
+                ScreenClass = getattr(module, class_name)
+                instance = ScreenClass(name=screen_name)
+                self.root.add_widget(instance)
+                self._screen_instances[screen_name] = instance
+                print(f"Successfully loaded and added screen: {screen_name}")
+            except Exception as e:
+                print(f"Error loading screen {screen_name} (from {module_path}.{class_name}): {e}")
+                # Optionally, re-raise or handle more gracefully
+                return False
+        return True
+
+    def switch_to_screen(self, screen_name, *args): # *args for kv compatibility e.g. on_release
+        """Switches to the specified screen, loading it if necessary."""
+        if self.ensure_screen_loaded(screen_name):
+            self.root.current = screen_name
+        else:
+            # Fallback or error handling if screen loading failed
+            print(f"Critical: Could not switch to screen '{screen_name}' due to loading errors.")
+            # Optionally, switch to a default error screen or stay on the current screen
+            # For now, we'll just print the error. If current screen is invalid, Kivy might error.
+            if not self.root.has_screen(self.root.current): # Ensure current screen is valid
+                 if 'login' in self._screen_instances: # Try to go to login if current is bad
+                    self.root.current = 'login'
+                 else: # Absolute fallback, though ensure_screen_loaded('login') should run in build
+                    pass # Or raise an exception
+
     def on_start(self):
-        pass
+        # Load the AI model in a background thread
+        thread = threading.Thread(target=self.load_model_in_background)
+        thread.daemon = True # Allow main program to exit even if thread is still running
+        thread.start()
+
+    def load_model_in_background(self):
+        """Helper method to load the model, called in a separate thread."""
+        # Import load_model here to defer its import until needed
+        from features.artificial_intelligence import load_model
+        print("Starting AI model loading in background...")
+        load_model()
+        print("AI model loaded successfully in background!")
 
     def on_new_analysis(self, *args): # Add the default handler
         """
@@ -77,6 +115,4 @@ class DemoApp(MDApp, EventDispatcher):
         pass
 
 if __name__ == "__main__":
-    load_model() # Load the model once at startup
-    print("AI model loaded successfully!")
     DemoApp().run()

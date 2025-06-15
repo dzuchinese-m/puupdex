@@ -8,6 +8,7 @@ from plyer import filechooser
 from kivy.metrics import dp
 from pyrebaseConfig import auth
 from kivymd.toast import toast
+from kivymd.app import MDApp # Added import
 
 class SettingsFeature(Screen):
     def __init__(self, screen_manager=None, **kwargs):
@@ -66,12 +67,5 @@ class SettingsFeature(Screen):
             print(f"Sign out error: {e}")
             toast("Error signing out.")
         # Return to login screen
-        if self.manager is not None:
-            self.manager.transition.direction = 'right'
-            self.manager.current = 'login'
-        else:
-            from kivy.app import App
-            app = App.get_running_app()
-            if hasattr(app, 'root') and hasattr(app.root, 'current'):
-                app.root.transition.direction = 'right'
-                app.root.current = 'login'
+        app = MDApp.get_running_app()
+        app.switch_to_screen('login')

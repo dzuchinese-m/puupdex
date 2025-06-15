@@ -41,7 +41,34 @@ class AnalyseFeature(Screen):
         self._video_preview_frame_tempfile = None # For video first frame preview
         self.is_video_file = False # Flag to indicate if the selected file is a video
         self.analysis_in_progress = False # Flag to prevent concurrent analyses
+        # It's better to initialize UI elements that are directly part of the class structure here
+        # or ensure they are created before on_enter might try to access them if not built by kv.
+        # For now, setup_ui() is called in __init__, which is fine.
         self.setup_ui()
+
+    def on_enter(self, *args):
+        """Called when the screen is entered."""
+        print("AnalyseFeature: on_enter called")
+        app = MDApp.get_running_app()
+        file_path = getattr(app, 'current_analysis_file_path', None)
+        is_video = getattr(app, 'current_analysis_is_video', False)
+
+        if file_path:
+            print(f"AnalyseFeature: File path from app: {file_path}, is_video: {is_video}")
+            # Call prepare_for_analysis which should handle UI updates
+            self.prepare_for_analysis(file_path, is_video)
+            # Clear the attributes on the app instance after use to prevent reuse on accidental re-entry
+            # without going through the upload flow again.
+            delattr(app, 'current_analysis_file_path')
+            delattr(app, 'current_analysis_is_video')
+        else:
+            print("AnalyseFeature: No file path found in app instance on_enter. UI might not update with new file.")
+            # If there's no new file, we might want to ensure the UI reflects the current state
+            # (e.g., if a file was already loaded from a previous session on this screen).
+            # For now, prepare_for_analysis(None, False) or similar could be called if we want to clear.
+            # However, if self.selected_file_path is already set, update_ui_for_file_type might be enough.
+            if not self.selected_file_path: # If no file is selected at all
+                 self.update_ui_for_file_type() # Ensure UI is in a default state
 
     def prepare_for_analysis(self, file_path, is_video):
         """Called by UploadFeature to set the file and prepare the UI before switching to this screen."""
@@ -226,10 +253,12 @@ class AnalyseFeature(Screen):
         self.add_widget(main_layout)
 
     def open_file_explorer(self, instance):
-
+        # When "Change Image/Video" is clicked on this screen directly
+        # Disable button to prevent multiple clicks
+        instance.disabled = True # Disable the button that was clicked
         try:
             filechooser.open_file(
-                on_selection=self.on_file_selected,
+                on_selection=lambda sel: self._handle_direct_file_selection(sel, instance),
                 filters=[
                     ("Supported Media Files", "*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.mp4;*.avi;*.mov;*.mkv"),
                     ("All files", "*.*")
@@ -238,8 +267,31 @@ class AnalyseFeature(Screen):
             )
         except Exception as e:
             print(f"Error opening file explorer: {e}")
-            self.select_button.disabled = False
+            instance.disabled = False # Re-enable on error
         
+    def _handle_direct_file_selection(self, selection, button_instance):
+        """Callback for filechooser when initiated from AnalyseFeature itself."""
+        if self.analysis_in_progress:
+            print("Analysis already in progress, ignoring new file selection for now.")
+            button_instance.disabled = False # Re-enable button
+            return
+
+        self._cleanup_temp_files() # Clean up previous temp files
+
+        if selection:
+            new_file_path = selection[0]
+            file_extension = os.path.splitext(new_file_path)[1].lower()
+            is_video = file_extension in [".mp4", ".avi", ".mov", ".mkv"]
+            
+            # Call prepare_for_analysis to update UI and state correctly
+            self.prepare_for_analysis(new_file_path, is_video)
+            print(f"File changed directly in AnalyseFeature: {self.selected_file_path}, is_video: {self.is_video_file}")
+        else:
+            print("No file selected in AnalyseFeature after 'Change' button.")
+            # Optionally, clear the selection or revert to a default state
+            # self.prepare_for_analysis(None, False) # This would clear the UI
+        button_instance.disabled = False # Re-enable button after selection (or no selection)
+
     def _center_crop_image(self, image_path):
         """Crop the image to a 1:1 aspect ratio centered, resize to 224x224, and save to a temp file."""
         img = PILImage.open(image_path).convert("RGB")
@@ -294,7 +346,7 @@ class AnalyseFeature(Screen):
         if image_path_to_preview:
             if not os.path.exists(image_path_to_preview):
                 print(f"Error: Input for _center_crop_image does not exist: {image_path_to_preview}")
-                self.image_preview.source = 'assets/file_not_found.png' # Or some error image
+                self.image_preview.source = 'assets/video_placeholder.png' # More generic placeholder
                 self.image_preview.reload()
                 # If the problematic path was _video_preview_frame_tempfile, nullify it
                 if hasattr(self, '_video_preview_frame_tempfile') and self._video_preview_frame_tempfile == image_path_to_preview:
@@ -323,11 +375,11 @@ class AnalyseFeature(Screen):
                         self._video_preview_frame_tempfile = None # Ensure it's None
             else:
                 print(f"Error: _center_crop_image returned None for {image_path_to_preview}")
-                self.image_preview.source = 'assets/processing_error.png' # Or some error image
+                self.image_preview.source = 'assets/video_placeholder.png' # More generic placeholder
                 self.image_preview.reload()
         else:
             print("AnalyseFeature: _set_image_preview called with None/empty path. Clearing preview.")
-            self.image_preview.source = '' # Default placeholder or empty
+            self.image_preview.source = 'assets/video_placeholder.png' # Default placeholder or empty
             self.image_preview.reload()
             # If image_path_to_preview is None, ensure any lingering _video_preview_frame_tempfile is also cleared
             if hasattr(self, '_video_preview_frame_tempfile') and self._video_preview_frame_tempfile:
@@ -340,8 +392,11 @@ class AnalyseFeature(Screen):
                      print(f"Error cleaning lingering _video_preview_frame_tempfile (else branch): {e}")
                      self._video_preview_frame_tempfile = None
 
-    def on_file_selected(self, selection):
-        """Handle file selection when 'Change Image/Video' is clicked on this screen."""
+    def on_file_selected(self, selection): # This method is now effectively replaced by _handle_direct_file_selection for UI initiated selections
+        """Handle file selection when \'Change Image/Video\' is clicked on this screen."""
+        # This method might still be useful if called programmatically, but for UI, _handle_direct_file_selection is used.
+        # For clarity, we can consolidate or ensure this isn't accidentally used by UI.
+        # For now, let's assume it's not directly tied to the "Change Image" button's on_release anymore.
         if self.analysis_in_progress:
             print("Analysis already in progress, ignoring new file selection for now.")
             return
@@ -353,13 +408,10 @@ class AnalyseFeature(Screen):
             file_extension = os.path.splitext(new_file_path)[1].lower()
             is_video = file_extension in [".mp4", ".avi", ".mov", ".mkv"]
             
-            # Call prepare_for_analysis to update UI and state correctly
             self.prepare_for_analysis(new_file_path, is_video)
-            print(f"File changed in AnalyseFeature: {self.selected_file_path}, is_video: {self.is_video_file}")
+            print(f"File changed (on_file_selected): {self.selected_file_path}, is_video: {self.is_video_file}")
         else:
-            print("No file selected in AnalyseFeature after 'Change' button.")
-            # Optionally, clear the selection or revert to a default state
-            # self.prepare_for_analysis(None, False) # This would clear the UI
+            print("No file selected (on_file_selected).")
 
     def update_ui_for_file_type(self):
         """Update UI elements based on whether an image or video is selected."""
@@ -399,12 +451,13 @@ class AnalyseFeature(Screen):
         """Extracts the first frame of a video and saves it as a temporary image file."""
         try:
             # Clean up old preview frame if it exists
-            if self._video_preview_frame_tempfile:
+            if self._video_preview_frame_tempfile and os.path.exists(self._video_preview_frame_tempfile): # Added exists check
                 try:
                     os.remove(self._video_preview_frame_tempfile)
+                    print(f"Cleaned up old _video_preview_frame_tempfile: {self._video_preview_frame_tempfile}")
                 except Exception as e:
                     print(f"Error removing old video preview temp file: {e}")
-                self._video_preview_frame_tempfile = None
+                self._video_preview_frame_tempfile = None # Set to None regardless
 
             cap = cv2.VideoCapture(video_path)
             if not cap.isOpened():
@@ -571,7 +624,7 @@ class AnalyseFeature(Screen):
             
             self._display_results_dialog(best_frame_predictions, title_prefix="Video Analysis Result")
         
-        else: # No confident breed found or no representative frame
+        else: # No distinct breed found or no representative frame
             print(f"AnalyseFeature: No distinct breed/frame. Error: {error}. Rep_path: {representative_frame_path}")
             self.breed_label.text = "Video: No distinct breed found."
             # Reset preview to the first frame (or placeholder if that failed)
@@ -589,6 +642,7 @@ class AnalyseFeature(Screen):
                     self.image_preview.source = placeholder_path
                 else:
                     print(f"ERROR: Placeholder image not found at {placeholder_path}")
+                    # Fallback or decide how to handle missing placeholder in history
                     self.image_preview.source = "" # Fallback to empty if still not found
                 self.image_preview.reload()
             # Save a generic history entry indicating no result
@@ -873,8 +927,17 @@ class AnalyseFeature(Screen):
             self.capture_button.disabled = False
 
     def go_dashboard(self, instance):
-        # Switch to dashboard screen
-        app = MDApp.get_running_app()
-        app.root.current = 'dashboard'
-        app = MDApp.get_running_app()
-        app.root.current = 'dashboard'
+        # self.manager.current = "dashboard" # Old way
+        MDApp.get_running_app().switch_to_screen("dashboard")
+
+    def on_leave(self, *args):
+        """Called when the screen is left."""
+        print("AnalyseFeature: on_leave called. Cleaning up temp files.")
+        self._cleanup_temp_files()
+        # Reset analysis state if needed, or clear sensitive data
+        # self.selected_file_path = None # Optional: clear selected file when leaving
+        # self.is_video_file = False
+        # self.update_ui_for_file_type() # Reset UI to default
+        # self.analysis_in_progress = False
+        # self.analyze_button.disabled = True
+        # self.breed_label.text = "Breed: Undetermined"
