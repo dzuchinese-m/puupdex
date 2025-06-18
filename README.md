@@ -12,7 +12,16 @@ pip install -r requirements.txt
 
 ## Usage
 
-Run main.py for the application to load in.
+Run main.py for the application to load.
+
+The default account to test is:
+
+```bash
+admin@demo.com
+123456
+```
+
+But you could use your very own account if needed to. 
 
 ## Contributing
 
