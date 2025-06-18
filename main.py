@@ -114,5 +114,14 @@ class DemoApp(MDApp, EventDispatcher):
         """
         pass
 
+class DashboardScreen():
+    def on_enter(self):
+        # Place your AI model loading code here if you want it to load on dashboard
+        self.load_ai_model_in_background()
+
+    def load_ai_model_in_background(self):
+        # ...your AI model loading code...
+        pass
+
 if __name__ == "__main__":
     DemoApp().run()
