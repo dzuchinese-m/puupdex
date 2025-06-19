@@ -1,5 +1,5 @@
 from kivymd.app import MDApp
-from kivy.uix.screenmanager import ScreenManager
+from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.core.window import Window
 from kivy.core.text import LabelBase
 from kivymd.font_definitions import theme_font_styles
@@ -17,27 +17,19 @@ Config.set('input', 'mouse', 'mouse,disable_multitouch')
 
 class DemoApp(MDApp, EventDispatcher):
     __events__ = ('on_new_analysis',) # Register the event
-    
-    _screen_instances = {} # Cache for instantiated screen instances
-    _screen_module_paths = { # Maps screen names to their module path and class name
-        'login': ('pages.login', 'LoginScreen'),
-        'registration': ('pages.registration', 'RegistrationScreen'),
-        'recovery': ('pages.recovery', 'RecoveryScreen'),
-        'dashboard': ('pages.dashboard', 'DashboardScreen'),
-        'upload': ('features.upload', 'UploadFeature'), # Assuming UploadFeature is a Kivy Screen
-        'analyse': ('features.analyse', 'AnalyseFeature'), # Assuming AnalyseFeature is a Kivy Screen
-    }
 
-    def build(self):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Set theme before any widget is created
         self.theme_cls.primary_palette = "LightBlue"
         self.theme_cls.theme_style = "Dark"
-        Window.size = (768, 1024) # Tablet's
-        Window.orientation = 'portrait'
-
-        LabelBase.register(name="JetBrainsMono", fn_regular="assets/fonts/JetBrainsMono-Regular.ttf")
+        # Register font before any widget is created
+        try:
+            LabelBase.register(name="JetBrainsMono", fn_regular="assets/fonts/JetBrainsMono-Regular.ttf")
+        except Exception as e:
+            print(f"Font registration failed: {e}")
         if "JetBrainsMono" not in theme_font_styles:
             theme_font_styles.append("JetBrainsMono")
-
         font_styles = {
             "H1": ["JetBrainsMono", 96, False, -1.5], "H2": ["JetBrainsMono", 60, False, -0.5],
             "H3": ["JetBrainsMono", 48, False, 0], "H4": ["JetBrainsMono", 34, False, 0.25],
@@ -49,6 +41,19 @@ class DemoApp(MDApp, EventDispatcher):
         }
         self.theme_cls.font_styles.update(font_styles)
 
+    _screen_instances = {} # Cache for instantiated screen instances
+    _screen_module_paths = { # Maps screen names to their module path and class name
+        'login': ('pages.login', 'LoginScreen'),
+        'registration': ('pages.registration', 'RegistrationScreen'),
+        'recovery': ('pages.recovery', 'RecoveryScreen'),
+        'dashboard': ('pages.dashboard', 'DashboardScreen'),
+        'upload': ('features.upload', 'UploadFeature'), # Assuming UploadFeature is a Kivy Screen
+        'analyse': ('features.analyse', 'AnalyseFeature'), # Assuming AnalyseFeature is a Kivy Screen
+    }
+
+    def build(self):
+        Window.size = (768, 1024) # Tablet's
+        Window.orientation = 'portrait'
         self.root = ScreenManager()
 
         # Load the initial screen
@@ -68,13 +73,19 @@ class DemoApp(MDApp, EventDispatcher):
             try:
                 module = importlib.import_module(module_path)
                 ScreenClass = getattr(module, class_name)
+                # Check if ScreenClass is a subclass of Screen
+                if not issubclass(ScreenClass, Screen):
+                    print(f"Error: {class_name} in {module_path} is not a subclass of kivy.uix.screenmanager.Screen.")
+                    print(f"Type loaded: {type(ScreenClass)}")
+                    return False
                 instance = ScreenClass(name=screen_name)
                 self.root.add_widget(instance)
                 self._screen_instances[screen_name] = instance
                 print(f"Successfully loaded and added screen: {screen_name}")
             except Exception as e:
+                import traceback
                 print(f"Error loading screen {screen_name} (from {module_path}.{class_name}): {e}")
-                # Optionally, re-raise or handle more gracefully
+                traceback.print_exc()
                 return False
         return True
 
@@ -101,26 +112,21 @@ class DemoApp(MDApp, EventDispatcher):
 
     def load_model_in_background(self):
         """Helper method to load the model, called in a separate thread."""
-        # Import load_model here to defer its import until needed
-        from features.artificial_intelligence import load_model
-        print("Starting AI model loading in background...")
-        load_model()
-        print("AI model loaded successfully in background!")
+        try:
+            from features.artificial_intelligence import load_model
+            print("Starting AI model loading in background...")
+            load_model()  # Ensure this does NOT touch any Kivy UI or properties!
+            print("AI model loaded successfully in background!")
+        except Exception as e:
+            import traceback
+            print("Exception occurred while loading AI model in background:")
+            traceback.print_exc()
 
     def on_new_analysis(self, *args): # Add the default handler
         """
         Default handler for the on_new_analysis event.
         This event is dispatched when a new analysis is saved.
         """
-        pass
-
-class DashboardScreen():
-    def on_enter(self):
-        # Place your AI model loading code here if you want it to load on dashboard
-        self.load_ai_model_in_background()
-
-    def load_ai_model_in_background(self):
-        # ...your AI model loading code...
         pass
 
 if __name__ == "__main__":
