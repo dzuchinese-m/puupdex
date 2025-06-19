@@ -294,6 +294,8 @@ class HistoryPage(Screen, EventDispatcher): # Inherit from EventDispatcher
         history_file = os.path.join(os.path.dirname(__file__), "..", "analysis_history.json")
         updated_history = []
         deleted = False
+        entry_to_delete = None
+
         if os.path.exists(history_file):
             try:
                 with open(history_file, "r") as file:
@@ -301,19 +303,29 @@ class HistoryPage(Screen, EventDispatcher): # Inherit from EventDispatcher
                 for entry in history:
                     if entry.get('timestamp') == entry_id:
                         deleted = True
-                        continue # Skip this entry
+                        entry_to_delete = entry
+                        continue
                     updated_history.append(entry)
             except Exception as e:
                 print(f"Error reading history file for deletion: {e}")
-                return # Avoid overwriting if read failed
+                return
 
         if deleted:
             try:
                 with open(history_file, "w") as file:
                     json.dump(updated_history, file, indent=4)
-                self.load_history() # Refresh the display
+
+                if entry_to_delete:
+                    base_path = os.path.join(os.path.dirname(__file__), "..")
+                    for key in ['display_image', 'image']:
+                        if key in entry_to_delete and entry_to_delete[key]:
+                            file_path = os.path.join(base_path, os.path.normpath(entry_to_delete[key]))
+                            # Pass the updated history to check against
+                            delete_temp_frame_if_unreferenced(file_path, updated_history)
+                
+                self.load_history()
             except Exception as e:
-                print(f"Error writing updated history file: {e}")
+                print(f"Error writing updated history file or deleting associated files: {e}")
         else:
             print(f"Entry with ID {entry_id} not found for deletion.")
 
@@ -340,18 +352,83 @@ class HistoryPage(Screen, EventDispatcher): # Inherit from EventDispatcher
         self.dialog_delete_all.open()
 
     def do_delete_all_entries(self):
-        """Delete all entries from the analysis_history.json file."""
+        """Delete all entries from the analysis_history.json file and associated temp files."""
         if hasattr(self, 'dialog_delete_all') and self.dialog_delete_all:
             self.dialog_delete_all.dismiss()
 
         history_file = os.path.join(os.path.dirname(__file__), "..", "analysis_history.json")
+        temp_frames_dir = os.path.join(os.path.dirname(__file__), "..", "temp_frames")
+
         try:
-            # Overwrite the file with an empty list
+            # Overwrite the history file with an empty list first
             with open(history_file, "w") as file:
                 json.dump([], file, indent=4)
             
+            # Now, since history is empty, we can attempt to clean up all files in temp_frames
+            if os.path.isdir(temp_frames_dir):
+                for filename in os.listdir(temp_frames_dir):
+                    file_path = os.path.join(temp_frames_dir, filename)
+                    if os.path.isfile(file_path):
+                        # The history is empty, so no file should be referenced.
+                        delete_temp_frame_if_unreferenced(file_path, [])
+            
             # Refresh the history display
             self.load_history()
-            print("All history entries deleted.")
+            print("All history entries deleted and temp_frames cleaned.")
         except Exception as e:
             print(f"Error deleting all history entries: {e}")
+
+def delete_temp_frame_if_unreferenced(file_path_to_delete, current_history=None):
+    """
+    Deletes a file from the temp_frames directory, but only if it is not
+    referenced in any entry in the provided history list. If no history is
+    provided, it reads from analysis_history.json.
+
+    Args:
+        file_path_to_delete (str): The absolute path to the file to potentially delete.
+        current_history (list, optional): The list of history entries to check against.
+                                          If None, the function reads the history file.
+    """
+    history_to_check = current_history
+    if history_to_check is None:
+        history_file = os.path.join(os.path.dirname(__file__), "..", "analysis_history.json")
+        if not os.path.exists(history_file):
+            print(f"History file not found. Deleting '{os.path.basename(file_path_to_delete)}' as it cannot be referenced.")
+            if os.path.exists(file_path_to_delete):
+                try:
+                    os.remove(file_path_to_delete)
+                    print(f"Successfully deleted '{file_path_to_delete}'.")
+                except Exception as e:
+                    print(f"Error deleting file '{file_path_to_delete}': {e}")
+            return
+        try:
+            with open(history_file, "r") as file:
+                history_to_check = json.load(file)
+        except Exception as e:
+            print(f"Error reading or parsing history file: {e}")
+            return # Don't delete if we can't be sure
+
+    is_referenced = False
+    # Normalize the path to delete for comparison.
+    file_to_delete_basename = os.path.basename(file_path_to_delete)
+
+    for entry in history_to_check:
+        for key in ['display_image', 'image']:
+            if key in entry and entry[key]:
+                referenced_path_basename = os.path.basename(os.path.normpath(entry[key]))
+                if referenced_path_basename == file_to_delete_basename:
+                    is_referenced = True
+                    break
+        if is_referenced:
+            break
+
+    if not is_referenced:
+        print(f"'{file_to_delete_basename}' is not referenced in the current history. Deleting.")
+        try:
+            if os.path.exists(file_path_to_delete):
+                os.remove(file_path_to_delete)
+                print(f"Successfully deleted '{file_path_to_delete}'.")
+        except Exception as e:
+            print(f"Error deleting file '{file_path_to_delete}': {e}")
+    else:
+        print(f"'{file_to_delete_basename}' is referenced in the current history. Deletion skipped.")

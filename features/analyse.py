@@ -927,10 +927,4 @@ class AnalyseFeature(Screen):
             self.camera_button.disabled = False
 
     def go_dashboard(self, instance):
-        # self.manager.current = "dashboard" # Old way
-        MDApp.get_running_app().switch_to_screen("dashboard")
-
-    def on_leave(self, *args):
-        """Called when the screen is left."""
-        print("AnalyseFeature: on_leave called. Cleaning up temp files.")
-        self._cleanup_temp_files()
+        self.manager.current = 'dashboard'

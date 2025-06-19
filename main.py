@@ -7,6 +7,8 @@ from kivy.event import EventDispatcher
 import os
 import threading
 import importlib # Added for dynamic imports
+import json
+import sys
 
 parent_dir = os.path.dirname(__file__)  # puupdex folder
 
@@ -105,10 +107,69 @@ class DemoApp(MDApp, EventDispatcher):
                     pass # Or raise an exception
 
     def on_start(self):
+        """This is called when the app is started."""
+        self.cleanup_orphaned_temp_frames()
         # Load the AI model in a background thread
         thread = threading.Thread(target=self.load_model_in_background)
         thread.daemon = True # Allow main program to exit even if thread is still running
         thread.start()
+
+    @staticmethod
+    def cleanup_orphaned_temp_frames():
+        """
+        Deletes temporary frames from the temp_frames directory that are no longer
+        referenced in the analysis history. This is intended to be called on app startup.
+        """
+        print("Running cleanup for orphaned temporary frames...")
+        app = MDApp.get_running_app()
+        if not app:
+            print("App not running, cannot perform cleanup.")
+            return
+
+        history_file_path = os.path.join(app.user_data_dir, 'analysis_history.json')
+        
+        if getattr(sys, 'frozen', False):
+            base_path = os.path.dirname(sys.executable)
+            temp_frames_dir = os.path.join(base_path, 'puupdex', 'temp_frames')
+        else:
+            temp_frames_dir = os.path.join(os.getcwd(), 'puupdex', 'temp_frames')
+
+        if not os.path.exists(temp_frames_dir):
+            print(f"Temp frames directory not found, skipping cleanup: {temp_frames_dir}")
+            return
+
+        referenced_frames = set()
+        if os.path.exists(history_file_path):
+            try:
+                with open(history_file_path, 'r') as f:
+                    history_data = json.load(f)
+                for entry in history_data:
+                    if 'best_frame_path' in entry and entry['best_frame_path']:
+                        referenced_frames.add(os.path.basename(entry['best_frame_path']))
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"Error reading or parsing analysis history: {e}")
+                return
+
+        try:
+            actual_frames_in_dir = {f for f in os.listdir(temp_frames_dir) if os.path.isfile(os.path.join(temp_frames_dir, f))}
+        except OSError as e:
+            print(f"Error listing files in temp_frames directory: {e}")
+            return
+
+        orphaned_frames = actual_frames_in_dir - referenced_frames
+
+        if not orphaned_frames:
+            print("No orphaned frames to delete.")
+            return
+
+        print(f"Deleting {len(orphaned_frames)} orphaned frames...")
+        for frame_filename in orphaned_frames:
+            frame_path_to_delete = os.path.join(temp_frames_dir, frame_filename)
+            try:
+                os.remove(frame_path_to_delete)
+                print(f"Deleted orphaned frame: {frame_filename}")
+            except OSError as e:
+                print(f"Error deleting orphaned frame {frame_filename}: {e}")
 
     def load_model_in_background(self):
         """Helper method to load the model, called in a separate thread."""
