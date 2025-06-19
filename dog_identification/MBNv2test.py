@@ -1,92 +1,124 @@
 import cv2
 import torch
-import torch.nn as nn
-import torchvision.transforms as transforms
-import pickle
 from PIL import Image
-import numpy as np
-import time
 import os
+import sys
 
-current_dir = os.path.dirname(__file__)
-parent_dir = os.path.dirname(current_dir)
-# ==== LOAD MODEL ====
-print("Loading model....")
-model_path = os.path.join(parent_dir, "puprecogniser_model\.tsinghua_refined", "dog_breed_mobilenetv2_calibrated.pth")
-label_encoder_path = os.path.join(parent_dir, "puprecogniser_model\.tsinghua_refined", "label_encoder.pkl")
+# Add the parent directory to the Python path to allow imports from other folders
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Load label encoder
-with open(label_encoder_path, 'rb') as f:
-    label_encoder = pickle.load(f)
-class_names = label_encoder.classes_
+from features.artificial_intelligence import get_predictor
 
-from torchvision.models import mobilenet_v2
-model = mobilenet_v2(weights=None)
-model.classifier[1] = nn.Linear(model.last_channel, len(class_names))  # adjust for your num classes
+# --- Constants ---
+WINDOW_NAME = "Dog and Human Detection"
+WEBCAM_INDEX = 0
+CONFIDENCE_THRESHOLD = 0.4
 
-checkpoint = torch.load(model_path, map_location=torch.device('cpu'))
-if 'model' in checkpoint:
-    state_dict = checkpoint['model']
-else:
-    state_dict = checkpoint
+def initialize_models():
+    """Loads the YOLOv5 and DogBreedPredictor models."""
+    try:
+        print("Loading Dog Breed Predictor model...")
+        predictor = get_predictor()
+        if predictor is None:
+            raise IOError("Failed to get the DogBreedPredictor instance.")
+        print("Dog Breed Predictor model loaded successfully.")
 
-new_state_dict = {}
-for k, v in state_dict.items():
-    if k == "temperature":
-        continue
-    if k.startswith('model.'):
-        new_state_dict[k[6:]] = v
-    else:
-        new_state_dict[k] = v
+        print("Loading YOLOv5 model...")
+        yolo_model = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
+        yolo_model.conf = CONFIDENCE_THRESHOLD
+        # Filter for 'dog' (index 16) and 'person' (index 0)
+        yolo_model.classes = [0, 16]
+        print("YOLOv5 model loaded successfully.")
+        return yolo_model, predictor
 
-model.load_state_dict(new_state_dict)
-model.eval()
+    except Exception as e:
+        print(f"FATAL: Failed to initialize models: {e}", file=sys.stderr)
+        return None, None
 
-# ==== IMAGE TRANSFORM ====
-transform = transforms.Compose([
-    transforms.ToPILImage(),
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225])
-])
+def main():
+    """Main function to run the webcam detection application."""
 
-# ==== OPEN WEBCAM ====
-cap = cv2.VideoCapture(0)
-if not cap.isOpened():
-    print("Error: Cannot open webcam")
-    exit()
+    # --- Step 1: Open the webcam FIRST ---
+    # This is to avoid library conflicts that might prevent camera access after
+    # loading heavy models like YOLOv5.
+    cap = cv2.VideoCapture(WEBCAM_INDEX) # Use default backend
+    if not cap.isOpened():
+        print(f"FATAL: Cannot open webcam at index {WEBCAM_INDEX}", file=sys.stderr)
+        print("Please ensure no other application is using the camera and that it is connected.", file=sys.stderr)
+        return
 
-starttime = 0
-while True:
-    currenttime = time.time()
-    fps = 1/(currenttime-starttime)
-    starttime = currenttime 
+    # --- Step 2: Now, initialize the models ---
+    yolo_model, predictor = initialize_models()
+    if not all([yolo_model, predictor]):
+        cap.release() # Release the camera if models fail to load
+        return
 
-    ret, frame = cap.read()
-    if not ret:
-        break
+    # Explicitly load the model data for the predictor
+    try:
+        print("Loading DogBreedPredictor model data...")
+        predictor.load_model()
+        print("DogBreedPredictor model data loaded successfully.")
+    except Exception as e:
+        print(f"FATAL: Failed to load DogBreedPredictor model: {e}", file=sys.stderr)
+        cap.release()
+        return
 
-    # Preprocess the frame
-    img = transform(frame).unsqueeze(0)  # Add batch dimension
-    with torch.no_grad():
-        output = model(img)
-        probs = torch.softmax(output, dim=1)
-        conf, pred = torch.max(probs, 1)
-        if conf.item() >= 0.5:
-            label = f"{class_names[pred]} {conf.item():.2f}"
-        else:
-            label = "You're not showing me a dog!"
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
-    cv2.putText(frame, label, (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-    
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Failed to grab frame, exiting...", file=sys.stderr)
+            break
 
-    cv2.putText(frame, "FPS:" + str(int(fps)), (20,70), cv2.FONT_HERSHEY_PLAIN,2,(0,255,0),2)
-    cv2.imshow("MobileNetV2 demo", frame)
-    key = cv2.waitKey(1) & 0xFF
-    if key == ord('q') or key == 27:  # 27 is the ESC key
-        break
+        # Convert frame to RGB for YOLOv5 model
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-cap.release()
-cv2.destroyAllWindows()
+        # YOLOv5 Detection
+        results = yolo_model(rgb_frame)
+        detections = results.xyxy[0].cpu().numpy()
+
+        for *xyxy, conf, cls in detections:
+            x1, y1, x2, y2 = map(int, xyxy)
+            label = "Unknown"
+            class_name = yolo_model.names[int(cls)]
+
+            if class_name == 'dog':
+                dog_img = frame[y1:y2, x1:x2]
+                if dog_img.size > 0:
+                    try:
+                        # Use the correct method for frame data: predict_top_breeds_from_frame
+                        top_breeds = predictor.predict_top_breeds_from_frame(dog_img, k=1)
+                        if top_breeds and top_breeds[0][0] != 'Undetermined':
+                            breed = top_breeds[0][0]
+                            label = breed.replace('_', ' ') # Make it readable
+                        else:
+                            label = "Dog (Unknown Breed)"
+                    except Exception as e:
+                        print(f"Could not classify dog breed: {e}", file=sys.stderr)
+                        label = "Dog (Unknown Breed)"
+
+            elif class_name == 'person':
+                label = "Human"
+
+            # Draw bounding box and label
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            text = f"{label} ({conf:.2f})"
+            (text_width, text_height), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+            cv2.rectangle(frame, (x1, y1 - text_height - 10), (x1 + text_width, y1), (0, 255, 0), -1)
+            cv2.putText(frame, text, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+
+        cv2.imshow(WINDOW_NAME, frame)
+
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    # Cleanup
+    cap.release()
+    cv2.destroyAllWindows()
+    print("Application closed.")
+
+if __name__ == '__main__':
+    main()
+
