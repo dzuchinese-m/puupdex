@@ -15,8 +15,6 @@ from PIL import Image as PILImage
 import tempfile
 from kivymd.toast import toast
 from pyrebaseConfig import storage, db, auth
-import firebase_admin
-from firebase_admin import db, storage
 
 class ClickableImage(ButtonBehavior, KivyImage):
     pass
@@ -171,10 +169,21 @@ class ProfileFeature(FloatLayout):
                 self.sex_field.text = ""
                 self.disable_edit_mode()
                 return
-            # Always fetch fresh data from Firebase
-            data = db.child("users").child(user_id).get(token=id_token)
-            info = data.val()
-
+            # Try to fetch from /users/{user_id}/info first, fallback to /users/{user_id}
+            info = None
+            try:
+                data = db.child("users").child(user_id).child("info").get(token=id_token)
+                info = data.val()
+                print(f"Loaded info from /users/{user_id}/info: {info}")
+            except Exception as e:
+                print(f"Could not load from /users/{user_id}/info: {e}")
+            if not info:
+                try:
+                    data = db.child("users").child(user_id).get(token=id_token)
+                    info = data.val()
+                    print(f"Loaded info from /users/{user_id}: {info}")
+                except Exception as e:
+                    print(f"Could not load from /users/{user_id}: {e}")
             from kivy.clock import Clock
             def set_fields(*_):
                 self.name_field.text = info.get("name", "") if info else ""
@@ -283,19 +292,18 @@ class ProfileFeature(FloatLayout):
 
     def upload_profile_info_and_picture(user_id, info_dict, local_image_path=None):
         """
-        Upload user profile info and profile picture to Firebase.
+        Upload user profile info and profile picture to Firebase using pyrebase only.
         info_dict: dict of profile fields (e.g., name, email, bio, etc.)
         local_image_path: path to local image file (optional)
         """
         profile_pic_url = None
         if local_image_path:
             try:
-                bucket = storage.bucket()
-                blob = bucket.blob(f"profile_pictures/{user_id}.png")
-                blob.upload_from_filename(local_image_path)
-                blob.make_public()  # Or use get_signed_url for restricted access
-                profile_pic_url = blob.public_url
-                db.reference(f"users/{user_id}/profile_picture").set(profile_pic_url)
+                # Upload image to pyrebase storage
+                storage.child(f"profile_pictures/{user_id}.png").put(local_image_path)
+                # Get the download URL
+                profile_pic_url = storage.child(f"profile_pictures/{user_id}.png").get_url(None)
+                db.child("users").child(user_id).child("profile_picture").set(profile_pic_url)
                 print(f"Profile picture uploaded and URL saved: {profile_pic_url}")
             except Exception as e:
                 print(f"Error uploading profile picture: {e}")
@@ -304,33 +312,27 @@ class ProfileFeature(FloatLayout):
             # Optionally add the profile_pic_url to info_dict for convenience
             if profile_pic_url:
                 info_dict["profile_picture"] = profile_pic_url
-            db.reference(f"users/{user_id}/info").set(info_dict)
+            db.child("users").child(user_id).child("info").set(info_dict)
             print(f"Profile info uploaded for user {user_id}.")
         except Exception as e:
             print(f"Error uploading profile info: {e}")
 
     def fetch_profile_info_and_picture(user_id):
         """
-        Fetch user profile info and profile picture URL from Firebase.
+        Fetch user profile info and profile picture URL from Firebase using pyrebase only.
         Returns a tuple: (info_dict, profile_pic_url)
         """
         info = None
         profile_pic_url = None
         try:
-            info = db.reference(f"users/{user_id}/info").get()
+            info = db.child("users").child(user_id).child("info").get().val()
         except Exception as e:
             print(f"Error fetching profile info: {e}")
         try:
-            profile_pic_url = db.reference(f"users/{user_id}/profile_picture").get()
+            profile_pic_url = db.child("users").child(user_id).child("profile_picture").get().val()
         except Exception as e:
             print(f"Error fetching profile picture URL: {e}")
         # Optionally, if info contains 'profile_picture', prefer that
         if info and "profile_picture" in info:
             profile_pic_url = info["profile_picture"]
         return info, profile_pic_url
-
-# Example usage:
-# upload_profile_info(user_id, {"name": "John Doe", "bio": "Dog lover", ...})
-# info = fetch_profile_info(user_id)
-# upload_profile_info_and_picture(user_id, {"name": "Jane", "bio": "Dog lover"}, "/path/to/pfp.png")
-# info, pfp_url = fetch_profile_info_and_picture(user_id)
