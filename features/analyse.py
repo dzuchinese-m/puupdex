@@ -915,7 +915,7 @@ class AnalyseFeature(Screen):
     def open_camera_mbnv2(self, instance):
         """Open the camera using the integrated real-time breed detection."""
         # Disable the button to prevent multiple clicks
-        self.capture_button.disabled = True
+        self.camera_button.disabled = True
         mbnv2_script = os.path.join(os.path.dirname(__file__), "..", "dog_identification", "MBNv2test.py")
         mbnv2_script = os.path.abspath(mbnv2_script)
         try:
@@ -924,7 +924,7 @@ class AnalyseFeature(Screen):
             print(f"Error opening camera with MobileNetV2: {e}")
         finally:
             # Re-enable the button after the operation attempts to complete
-            self.capture_button.disabled = False
+            self.camera_button.disabled = False
 
     def go_dashboard(self, instance):
         # self.manager.current = "dashboard" # Old way
@@ -934,10 +934,3 @@ class AnalyseFeature(Screen):
         """Called when the screen is left."""
         print("AnalyseFeature: on_leave called. Cleaning up temp files.")
         self._cleanup_temp_files()
-        # Reset analysis state if needed, or clear sensitive data
-        # self.selected_file_path = None # Optional: clear selected file when leaving
-        # self.is_video_file = False
-        # self.update_ui_for_file_type() # Reset UI to default
-        # self.analysis_in_progress = False
-        # self.analyze_button.disabled = True
-        # self.breed_label.text = "Breed: Undetermined"
