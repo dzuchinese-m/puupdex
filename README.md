@@ -29,7 +29,7 @@ Run main.py for the application to load.
 The default account to test is:
 
 ```bash
-admin@demo.com
+admin@demo.stable
 123456
 ```
 
