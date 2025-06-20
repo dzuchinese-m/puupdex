@@ -11,3 +11,4 @@ pyrebase4
 opencv-python
 ultralytics
 firebase_admin
+seaborn
