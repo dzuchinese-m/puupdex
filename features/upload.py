@@ -122,7 +122,7 @@ class UploadFeature(Screen):
         """Open the camera using the integrated real-time breed detection."""
         # Disable the button to prevent multiple clicks
         self.capture_button.disabled = True
-        mbnv2_script = os.path.join(os.path.dirname(__file__), "..", "dog_identification", "MBNv2test.py")
+        mbnv2_script = os.path.join(os.path.dirname(__file__), "..", "dog_identification", "YOLOnew.py")
         mbnv2_script = os.path.abspath(mbnv2_script)
         try:
             subprocess.Popen([sys.executable, mbnv2_script]) 
