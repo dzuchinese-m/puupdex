@@ -61,11 +61,23 @@ class SettingsFeature(Screen):
 
     def sign_out(self, instance):
         try:
-            auth.current_user = None 
+            # Clear pyrebase auth session
+            auth.current_user = None
+            # If you store user info or tokens elsewhere, clear them here as well
+            # For example, if you have a global or app-level user variable:
+            app = MDApp.get_running_app()
+            if hasattr(app, "user"):
+                app.user = None
             toast("Signed out successfully!")
         except Exception as e:
             print(f"Sign out error: {e}")
             toast("Error signing out.")
-        # Return to login screen
+        # Return to login screen and optionally reset login fields
         app = MDApp.get_running_app()
         app.switch_to_screen('login')
+        # Optionally reset login fields if needed:
+        login_screen = app.root.get_screen('login')
+        if hasattr(login_screen, "email_field"):
+            login_screen.email_field.text = ""
+        if hasattr(login_screen, "password_field"):
+            login_screen.password_field.text = ""
