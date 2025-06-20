@@ -4,6 +4,8 @@ Pupdex is a dog breed classifier app, built using Kivy, KivyMD with extra featur
 
 ## Installation
 
+Go to the directory where you stored Pupdex and then open a terminal there.
+
 1. Create a virtual environment within Pupdex:
 
 ```bash
@@ -13,7 +15,7 @@ python -m venv .env
 2. Activate the virtual environment:
 
 ```bash
-cd .env\Scirpts\activation
+cd .env\Scirpts\activate
 ```
 
 3. Use the package manager [pip](https://pip.pypa.io/en/stable/) to install all the requirements:
