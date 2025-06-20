@@ -4,6 +4,7 @@ Pupdex is a dog breed classifier app, built using Kivy, KivyMD with extra featur
 
 ## Installation
 
+[Git](https://git-scm.com/downloads) is required.
 Go to the directory where you store Pupdex and then open a terminal there.
 
 1. Create a virtual environment within Pupdex:
