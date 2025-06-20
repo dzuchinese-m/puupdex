@@ -15,7 +15,7 @@ python -m venv .env
 2. Activate the virtual environment:
 
 ```bash
-cd .env\Scirpts\activate
+.env\Scirpts\activate
 ```
 
 3. Use the package manager [pip](https://pip.pypa.io/en/stable/) to install all the requirements:
