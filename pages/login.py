@@ -97,13 +97,13 @@ class LoginScreen(Screen):
             user = auth.sign_in_with_email_and_password(email, password)
             print("Login successful:", user['email'] if 'email' in user else user)
             toast("Login successful!")
-            MDApp.get_running_app().switch_to_screen('dashboard') # Changed this line
+            self.manager.current = 'dashboard'  # Changed to use ScreenManager
         except Exception as e:
             print("Login failed:", e)
             toast("Login failed. Check your credentials.")
 
     def go_registeration(self, *args):
-        MDApp.get_running_app().switch_to_screen('registration') # Changed this line
+        self.manager.current = 'registration'  # Changed to use ScreenManager
 
     def go_recovery(self, *args):
-        MDApp.get_running_app().switch_to_screen('recovery') # Changed this line
+        self.manager.current = 'recovery'  # Changed to use ScreenManager
