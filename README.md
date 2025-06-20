@@ -25,6 +25,8 @@ python -m venv .env
 pip install -r requirements.txt
 ```
 
+(If you're not familiar with creating a virtual environment, you can safely ignore step 1 and 2 and install all requirements globally.)
+
 ## Usage
 
 Run main.py for the application to load.
