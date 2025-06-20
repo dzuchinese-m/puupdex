@@ -62,6 +62,10 @@ class DemoApp(MDApp, EventDispatcher):
         self.ensure_screen_loaded('login')
         self.root.current = 'login'  # Set the initial screen
 
+        # Dynamically add screens to ScreenManager
+        for screen_name in self._screen_module_paths:
+            self.ensure_screen_loaded(screen_name)
+
         return self.root
 
     def ensure_screen_loaded(self, screen_name):
